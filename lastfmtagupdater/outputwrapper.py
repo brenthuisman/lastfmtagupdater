@@ -6,10 +6,10 @@ This helper class facilitates output to either the console or a GUI. If GUI mode
 as a background thread.
 '''
 class OutputWrapper():
-    
+
     def __init__(self, config):
         self.config = config
-            
+
         logFile = self.config.get('logFile')
         if (logFile is not None):
             self.logFileHandle = codecs.open(logFile, 'w+', 'utf_8_sig')
@@ -18,13 +18,13 @@ class OutputWrapper():
     def logNormal(self, msg):
         self._logHelper(msg, sys.stdout)
 
-        
+
     def logError(self, msg):
         self._logHelper(msg, sys.stderr)
 
 
-    def _logHelper(self, msg, consoleStream):    
-        
+    def _logHelper(self, msg, consoleStream):
+
         if (self.logFileHandle is not None):
             self.logFileHandle.write(msg + '\n')
             self.logFileHandle.flush()
@@ -38,7 +38,7 @@ class OutputWrapper():
             pass
         consoleStream.flush()
 
-        
+
     def close(self):
         if (self.logFileHandle is not None):
-            self.logFileHandle.close()                        
+            self.logFileHandle.close()

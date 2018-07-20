@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from setuptools import setup
 
-VERSION = '3.0'
+VERSION = '3.0.1'
 
 with open("README.md", "rb") as f:
     long_descr = f.read()
@@ -27,7 +27,7 @@ def main():
           license='GPL',
           include_package_data=True,
           zip_safe=False,
-          install_requires=['pylast','mutagen'],
+          install_requires=['pylast<2.0.0','mutagen'],
           packages=['lastfmtagupdater'],
           entry_points={
               "console_scripts": ['lastfmtagupdater = lastfmtagupdater:main'],

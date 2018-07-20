@@ -5,22 +5,22 @@ from .outputwrapper import OutputWrapper
 
 def main(argv=None):
     config = LastFM_Config(argv)
-    
+
     if (config.getboolean('delcache') and os.path.exists(config.get('cachefile'))):
         if (config.getboolean('verbose')):
             print('Removing existing cachefile')
         os.remove(config.get('cacheFile'))
-    
-    print(('Launching [' + os.path.basename(sys.argv[0]) + ']'))    
-                      
+
+    print(('Launching [' + os.path.basename(sys.argv[0]) + ']'))
+
     outputWrapper = OutputWrapper(config)
 
-    try:                
+    try:
         library = MediaLibrary(config, outputWrapper)
-        if (not config.getboolean('skipscan')):        
+        if (not config.getboolean('skipscan')):
             library.readMedia()
             library.writeCache()
-    
+
         if (not config.getboolean('skipfetch')):
             try:
                 library.fetchTags()
@@ -28,14 +28,14 @@ def main(argv=None):
                 library.writeCache()
                 raise
             library.writeCache()
-            
+
         if (not config.getboolean('skipupdate')):
             library.updateTags()
             library.writeCache()
-        
+
         outputWrapper.logNormal('DONE')
-        
+
     except:
-        pass 
-    finally:   
+        pass
+    finally:
         outputWrapper.close()

@@ -27,6 +27,7 @@ The default configuration file is [lastfm_tagger.conf]. Assuming that the config
 
 ### Changelog
 
+ * 2018-07-20: v3.0.1. Updates to tag handling, more robust capitalization and duplicate checking. New configuration option: skipTags. Helps unclutter tags retrieved from LastFM.
  * 2016-03-21: Renamed to lastfmtagupdater, bumped version number to v3. Finish port to Python 3, added setup.py. Cleaned up code, removed Gui.
  * 2016-01-28: Update writing mp4.
  * 2014-11-30: Fix: correctly ignore writeUntaggedTag. Change: write ID3v2.3 tags instead of ID3v2.4.

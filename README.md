@@ -27,6 +27,7 @@ The default configuration file is [lastfm_tagger.conf]. Assuming that the config
 
 ### Changelog
 
+ * 2022-12-12: v3.0.2. Add `.opus` support.
  * 2018-07-20: v3.0.1. Updates to tag handling, more robust capitalization and duplicate checking. New configuration option: skipTags. Helps unclutter tags retrieved from LastFM.
  * 2016-03-21: Renamed to lastfmtagupdater, bumped version number to v3. Finish port to Python 3, added setup.py. Cleaned up code, removed Gui.
  * 2016-01-28: Update writing mp4.

@@ -3,6 +3,7 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TIT1, COMM, TCON, TPE1, TPE2, TIT2, TALB
 from mutagen.mp4 import MP4
 from mutagen.oggvorbis import OggVorbis
+from mutagen.oggopus import OggOpus
 from . import common
 
 class MediaHelper:
@@ -23,6 +24,7 @@ class MediaHelper:
           id3=dict(genre='TCON', grouping='TIT1', comment="COMM::eng", artist='TPE1', albumartist='TPE2', album='TALB', track='TIT2'),
           mp4=dict(genre='\xa9gen', grouping='\xa9grp', comment='\xa9cmt', artist='\xa9ART', albumartist='aART', album='\xa9alb', track='\xa9nam'),
           oggvorbis=dict(genre='genre', grouping='grouping', comment='comment', artist='artist', albumartist='album artist', album='album', track='title'),
+          oggopus=dict(genre='genre', grouping='grouping', comment='comment', artist='artist', albumartist='album artist', album='album', track='title'),
           flac=dict(genre='genre', grouping='grouping', comment='comment', artist='artist', albumartist='album artist', album='album', track='title')
     )
 
@@ -67,6 +69,7 @@ class MediaHelper:
         if (ext == '.mp3'):     mediawrapper = ID3(filename)
         elif (ext == '.m4a'):   mediawrapper = MP4(filename)
         elif (ext == '.ogg'):   mediawrapper = OggVorbis(filename)
+        elif (ext == '.opus'):  mediawrapper = OggOpus(filename)
         elif (ext == '.flac'):  mediawrapper = FLAC(filename)
         else:                   mediawrapper = mutagen.File(filename)
         return mediawrapper
@@ -79,6 +82,7 @@ class MediaHelper:
             if (isinstance(mediawrapper, ID3)):         return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['id3'], filename)
             elif (isinstance(mediawrapper, MP4)):       return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['mp4'], filename)
             elif (isinstance(mediawrapper, OggVorbis)): return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['oggvorbis'], filename)
+            elif (isinstance(mediawrapper, OggOpus)): return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['oggopus'], filename)
             elif (isinstance(mediawrapper, FLAC)):      return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['flac'], filename)
             else:
                 if (self.config.getboolean('verbose')):
@@ -139,6 +143,7 @@ class MediaHelper:
             if (isinstance(mediawrapper, ID3)):         return self.updateTagsHelperID3(mediawrapper, tagPayload, self.formatFieldMap['id3'])
             elif (isinstance(mediawrapper, MP4)):       return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['mp4'])
             elif (isinstance(mediawrapper, OggVorbis)): return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['oggvorbis'])
+            elif (isinstance(mediawrapper, OggOpus)): return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['oggopus'])
             elif (isinstance(mediawrapper, FLAC)):      return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['flac'])
             else:                                       self.outputWrapper.logNormal('Skipping unknown/incompatible media file type [' + filename + ']')
         except Exception as err:

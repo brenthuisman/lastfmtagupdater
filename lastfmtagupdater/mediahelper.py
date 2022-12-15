@@ -8,7 +8,7 @@ from . import common
 
 class MediaHelper:
     config = None
-    tagSep = None
+    # tagSep = None
     maxTags = None
     tagSkipCounts = None
     overwriteFields = None
@@ -44,7 +44,7 @@ class MediaHelper:
     def __init__(self, config, outputWrapper):
         self.config = config
         self.outputWrapper = outputWrapper
-        self.tagSep = self.config.get('tagSep')
+        # self.tagSep = self.config.get('tagSep')
         # if (len(self.tagSep.strip()) > 0):
         #     self.tagSep += ' '
         self.maxTags = dict(genre=self.config.getint('genreMaxTags'),
@@ -138,7 +138,8 @@ class MediaHelper:
             mediawrapper = self.getMediawrapper(filename)
 
             for bucket in tagPayload:
-                tagPayload[bucket] = self.tagSep.join(tagPayload[bucket][self.tagSkipCounts[bucket]:self.tagSkipCounts[bucket] + self.maxTags[bucket]])
+                # tagPayload[bucket] = self.tagSep.join(tagPayload[bucket][self.tagSkipCounts[bucket]:self.tagSkipCounts[bucket] + self.maxTags[bucket]])
+                tagPayload[bucket] = tagPayload[bucket][self.tagSkipCounts[bucket]:self.tagSkipCounts[bucket] + self.maxTags[bucket]]
 
             if (isinstance(mediawrapper, ID3)):         return self.updateTagsHelperID3(mediawrapper, tagPayload, self.formatFieldMap['id3'])
             elif (isinstance(mediawrapper, MP4)):       return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['mp4'])
@@ -166,15 +167,21 @@ class MediaHelper:
                 elif (curField in mediawrapper and not common.isempty(mediawrapper[curField][0])):
                     if (bucket not in self.overwriteFields or str(mediawrapper[curField][0]) == str(tagPayload[bucket])):
                         continue
-            mediawrapper[curField] = str(tagPayload[bucket])
+            if isinstance(tagPayload[bucket], list):
+                if 1==len(tagPayload[bucket]):
+                    mediawrapper[curField] = tagPayload[bucket][0]
+                else:
+                    mediawrapper[curField] = tagPayload[bucket]
+            else:
+                exit("Weird tags found!")
             retVal = True
         if (retVal == True):
             retryCount = 0
             while True:
                 try:
                     if (isinstance(mediawrapper, ID3)):
-                        mediawrapper.update_to_v23()
-                        mediawrapper.save(v2_version=3)
+                        mediawrapper.update_to_v24()
+                        mediawrapper.save(v2_version=4)
                     else:
                         mediawrapper.save()
                     break
@@ -244,8 +251,8 @@ class MediaHelper:
             retryCount = 0
             while True:
                 try:
-                    mediawrapper.update_to_v23()
-                    mediawrapper.save(v2_version=3,v1=self.id3v1Handling)
+                    mediawrapper.update_to_v24()
+                    mediawrapper.save(v2_version=4,v1=self.id3v1Handling)
                     break
                 except Exception as err:
                     retryCount += 1

@@ -6,11 +6,11 @@ This programm uses tag information obtained from LastFM to update your files tag
 
 Simply run the following:
 
-    $ python setup.py install
+    $ pip install lastfmtagupdater
 
-Or run directly with:
+Or install from source with:
 
-    $ python lastfmtagupdater
+    $ pip install /path/to/lastfmtagupdater
 
 ## Usage
 

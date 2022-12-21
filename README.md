@@ -27,6 +27,7 @@ The default configuration file is [lastfm_tagger.conf]. Assuming that the config
 
 ### Changelog
 
+ * 2022-12-21: v3.1.0. Removed `setup.py`, added `pyproject.toml`. Update `pylast` dependency. Change to Python's `logging` module. Remove all traces of tag separators. Remove ability to save ad ID3v1. Some code cleanup.
  * 2022-12-15: v3.0.3. Write multiple values as multiple tags, remove configurable tag separator. Bump ID3 writing to v2.4.
  * 2022-12-12: v3.0.2. Add `.opus` support.
  * 2018-07-20: v3.0.1. Updates to tag handling, more robust capitalization and duplicate checking. New configuration option: skipTags. Helps unclutter tags retrieved from LastFM.

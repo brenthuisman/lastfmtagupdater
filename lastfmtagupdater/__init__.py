@@ -1,7 +1,6 @@
-import os.path,sys
+import os.path,sys,logging
 from .config import LastFM_Config
 from .medialibrary import MediaLibrary
-from .outputwrapper import OutputWrapper
 
 def main(argv=None):
     config = LastFM_Config(argv)
@@ -10,32 +9,32 @@ def main(argv=None):
         if (config.getboolean('verbose')):
             print('Removing existing cachefile')
         os.remove(config.get('cacheFile'))
+    
+    logFile = config.get('logFile')
+    if (logFile is 'None'):
+        logFile = None
+    debuglvl = logging.INFO
+    if config.getboolean('verbose'):
+        debuglvl = logging.DEBUG
+    logging.basicConfig(filename=logFile, encoding='utf-8', level=debuglvl)
 
-    print(('Launching [' + os.path.basename(sys.argv[0]) + ']'))
+    logging.info(f"Launching [{os.path.basename(sys.argv[0]) }]")
 
-    outputWrapper = OutputWrapper(config)
+    library = MediaLibrary(config)
+    if (not config.getboolean('skipscan')):
+        library.readMedia()
+        library.writeCache()
 
-    try:
-        library = MediaLibrary(config, outputWrapper)
-        if (not config.getboolean('skipscan')):
-            library.readMedia()
+    if (not config.getboolean('skipfetch')):
+        try:
+            library.fetchTags()
+        except:
             library.writeCache()
+            raise
+        library.writeCache()
 
-        if (not config.getboolean('skipfetch')):
-            try:
-                library.fetchTags()
-            except:
-                library.writeCache()
-                raise
-            library.writeCache()
+    if (not config.getboolean('skipupdate')):
+        library.updateTags()
+        library.writeCache()
 
-        if (not config.getboolean('skipupdate')):
-            library.updateTags()
-            library.writeCache()
-
-        outputWrapper.logNormal('DONE')
-
-    except:
-        pass
-    finally:
-        outputWrapper.close()
+    logging.info('DONE')

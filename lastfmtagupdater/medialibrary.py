@@ -1,4 +1,4 @@
-import fileinput,os,time,sys
+import fileinput,os,time,sys,logging
 from xml.etree.ElementTree import Element, SubElement, ElementTree
 from . import common
 from .lastfmwrapper import LastFM_Wrapper
@@ -37,17 +37,15 @@ class MediaLibrary:
     localTagLibrary = {}
 
     mediaHelper = None
-    outputWrapper = None
     config = None
     synonyms = {}
     cacheBackedUp = False
     artistSkipList = None
 
 
-    def __init__(self, config, outputWrapper):
+    def __init__(self, config):
         self.config = config
-        self.outputWrapper = outputWrapper
-        self.mediaHelper = MediaHelper(config, outputWrapper)
+        self.mediaHelper = MediaHelper(config)
         self.readCache()
 
         self.artistSkipList = self.loadSkipList(self.config.get('artistSkipListFile'))
@@ -62,7 +60,7 @@ class MediaLibrary:
 
 
     def writeCache(self):
-        self.outputWrapper.logNormal('Saving cache')
+        logging.info('Saving cache')
         cachefile = os.path.normpath(str(self.config.get('cacheFile')))
         ElementTree(self.toXml()).write(cachefile, 'UTF-8')
 
@@ -72,7 +70,7 @@ class MediaLibrary:
         verbose = self.config.getboolean('verbose')
         skipExtensions = ['.' + x.lower().strip() for x in self.config.get('skipExtensions').split(',')]
 
-        self.outputWrapper.logNormal('Reading existing metadata from [' + mediadir + ']')
+        logging.info('Reading existing metadata from [' + mediadir + ']')
         numfiles = 0
         for root, dirs, files in os.walk(mediadir):
             for filename in files:
@@ -85,9 +83,9 @@ class MediaLibrary:
                 for artist in metadata['artists']:
                     self.addToMediaLibrary(artist, metadata['album'], metadata['track'], isInScanset=True)
                 numfiles += 1
-                if (verbose):
-                    self.outputWrapper.logNormal('\tProcessed: ' + os.path.join(root, filename))
-        self.outputWrapper.logNormal('Read [' + str(numfiles) + '] media files')
+                # if (verbose):
+                logging.info('\tProcessed: ' + os.path.join(root, filename))
+        logging.info('Read [' + str(numfiles) + '] media files')
 
 
     def addToMediaLibrary(self, artist, album, track, artistTags=None, trackTags=None, isInScanset=False):
@@ -115,11 +113,11 @@ class MediaLibrary:
 
     def printLibrary(self):
         for artist in self.mediaLibrary:
-            self.outputWrapper.logNormal(artist + ' (' + ', '.join([pair[0] for pair in self.mediaLibrary[artist]['tags'] or []]) + ')')
+            logging.info(artist + ' (' + ', '.join([pair[0] for pair in self.mediaLibrary[artist]['tags'] or []]) + ')')
             for album in self.mediaLibrary[artist]['albums']:
-                self.outputWrapper.logNormal('\t' + album)
+                logging.info('\t' + album)
                 for track in self.mediaLibrary[artist]['albums'][album]['tracks']:
-                    self.outputWrapper.logNormal('\t\t' + track + ' (' + ', '.join([pair[0] for pair in self.mediaLibrary[artist]['albums'][album]['tracks'][track]['tags'] or []]) + ')')
+                    logging.info('\t\t' + track + ' (' + ', '.join([pair[0] for pair in self.mediaLibrary[artist]['albums'][album]['tracks'][track]['tags'] or []]) + ')')
 
 
     def toXml(self):
@@ -165,7 +163,7 @@ class MediaLibrary:
                         numtracks += 1
                     numalbums += 1
                 numartists += 1
-            self.outputWrapper.logNormal('Serialized [' + str(numartists) + '] artists, [' + str(numalbums) + '] albums, and [' + str(numtracks) + '] tracks to XML')
+            logging.info('Serialized [' + str(numartists) + '] artists, [' + str(numalbums) + '] albums, and [' + str(numtracks) + '] tracks to XML')
 
             localTagsElement = SubElement(libraryElement, 'localTags')
             for tagpair in sorted(list(self.localTagLibrary.items()), key=lambda x: x [1]['localhits'], reverse=True):
@@ -182,7 +180,7 @@ class MediaLibrary:
                 SubElement(lastTagsElement, 'tag', hits=str(self.lastTagLibrary[tag] or 0)).text = tag
                 numtags += 1
 
-            self.outputWrapper.logNormal('Serialized [' + str(numtags) + '] lastFM tags to XML')
+            logging.info('Serialized [' + str(numtags) + '] lastFM tags to XML')
 
             return libraryElement
         except Exception as err:
@@ -200,7 +198,7 @@ class MediaLibrary:
             for artistElement in artistsElement.findall('artist'):
                 nameElement = artistElement.find('name')
                 if (nameElement is None):
-                    self.outputWrapper.logError('Missing name element on [' + artistElement.tag + ']')
+                    logging.info('Missing name element on [' + artistElement.tag + ']')
                     continue
                 artist = str(nameElement.text.lower() if ignoreCase else nameElement.text)
 
@@ -217,14 +215,14 @@ class MediaLibrary:
                 for albumElement in artistElement.findall('album'):
                     nameElement = albumElement.find('name')
                     if (nameElement is None):
-                        self.outputWrapper.logError('Missing name element on [' + albumElement.tag + ']')
+                        logging.info('Missing name element on [' + albumElement.tag + ']')
                         continue
                     album = str(nameElement.text.lower() if ignoreCase else nameElement.text)
 
                     for trackElement in albumElement.findall('track'):
                         nameElement = trackElement.find('name')
                         if (nameElement is None):
-                            self.outputWrapper.logError('Missing name element on [' + trackElement.tag + ']')
+                            logging.info('Missing name element on [' + trackElement.tag + ']')
                             continue
                         track = str(nameElement.text.lower() if ignoreCase else nameElement.text)
 
@@ -243,7 +241,7 @@ class MediaLibrary:
                         numtracks += 1
                     numalbums += 1
                 numartists += 1
-            self.outputWrapper.logNormal('Loaded [' + str(numartists) + '] artists, [' + str(numalbums) + '] albums, and [' + str(numtracks) + '] cached tracks')
+            logging.info('Loaded [' + str(numartists) + '] artists, [' + str(numalbums) + '] albums, and [' + str(numtracks) + '] cached tracks')
 
             lastTagsElement = rootElement.find('lastFmTags')
             for lastTagElement in lastTagsElement.findall('tag'):
@@ -253,16 +251,14 @@ class MediaLibrary:
 
 
     def fetchTags(self):
-        lastfm = LastFM_Wrapper(self.config, self.outputWrapper)
+        lastfm = LastFM_Wrapper(self.config)
         self.fetchArtistTags(lastfm)
         self.fetchTrackTags(lastfm)
         self.fetchTagStats(lastfm)
-        #if (self.config.getboolean('verbose')):
-        #    self.printDistinctLastTags()
+        self.printDistinctLastTags()
 
 
     def fetchArtistTags(self, lastfm):
-        verbose = self.config.getboolean('verbose')
         refetch = self.config.getboolean('refetchCachedTags')
         minWeight = self.config.getint('minArtistTagWeight')
         niceness = self.config.getint('niceness') / 1000
@@ -270,7 +266,7 @@ class MediaLibrary:
         if (maxTagsToSave <= 0):
             return
 
-        self.outputWrapper.logNormal('Fetching artist tags from LastFM')
+        logging.info('Fetching artist tags from LastFM')
         for artist in sorted(self.mediaLibrary):
             if (artist in self.artistSkipList):
                 continue
@@ -282,13 +278,11 @@ class MediaLibrary:
             self.mediaLibrary[artist]['tags'] = tagpairs = lastfm.fetchArtistTags(artist, maxTagsToSave, minWeight)
             if (tagpairs is not None):
                 list(map(self.addToLastFMTagLibrary, [pair[0] for pair in tagpairs]))
-            if (verbose):
-                self.outputWrapper.logNormal('\tFetched [' + artist + '] (' + (', '.join([pair[0] for pair in tagpairs]) if tagpairs is not None else '') + ')')
+            logging.info('\tFetched [' + artist + '] (' + (', '.join([pair[0] for pair in tagpairs]) if tagpairs is not None else '') + ')')
             time.sleep(niceness)
 
 
     def fetchTrackTags(self, lastfm):
-        verbose = self.config.getboolean('verbose')
         refetch = self.config.getboolean('refetchCachedTags')
         minWeight = self.config.getint('minTrackTagWeight')
         niceness = self.config.getint('niceness') / 1000
@@ -296,7 +290,7 @@ class MediaLibrary:
         if (maxTagsToSave <= 0):
             return
 
-        self.outputWrapper.logNormal('Fetching track tags from LastFM')
+        logging.info('Fetching track tags from LastFM')
         for artist in sorted(self.mediaLibrary):
             if (artist in self.artistSkipList):
                 continue
@@ -310,8 +304,7 @@ class MediaLibrary:
                     self.mediaLibrary[artist]['albums'][album]['tracks'][track]['tags'] = tagpairs = lastfm.fetchTrackTags(artist, track, maxTagsToSave, minWeight)
                     if (tagpairs is not None):
                         list(map(self.addToLastFMTagLibrary, [pair[0] for pair in tagpairs]))
-                    if (verbose):
-                        self.outputWrapper.logNormal('\tFetched [' + artist + ':' + track + '] (' + (', '.join([pair[0] for pair in tagpairs]) if tagpairs is not None else '') + ')')
+                    logging.info('\tFetched [' + artist + ':' + track + '] (' + (', '.join([pair[0] for pair in tagpairs]) if tagpairs is not None else '') + ')')
                     time.sleep(niceness)
 
 
@@ -319,7 +312,7 @@ class MediaLibrary:
         ''' Fetch overall/LastFM-wide tag counts. Currently only works for LastFM's 'top tracks' (they don't syndicate counts for arbitrary tags) '''
         toptags = lastfm.fetchTopTagStats()
         if (toptags is None or len(toptags) == 0):
-            self.outputWrapper.logError('Could not retrieve tag counts from lastFM')
+            logging.info('Could not retrieve tag counts from lastFM')
             for lasttag in self.lastTagLibrary:
                 self.lastTagLibrary[lasttag] = 0
             return
@@ -340,11 +333,8 @@ class MediaLibrary:
 
     def updateTags(self):
         ''' This pushes the tags back into the underlying media files '''
-        verbose = self.config.getboolean('verbose')
         ignoreCase = self.config.getboolean('ignoreCase')
         mediadir = os.path.normpath(str(self.config.get('mediaDir')))
-        startDelim = self.config.get('tagStartDelim')
-        endDelim = self.config.get('tagEndDelim')
         artistTagFields = set(map(str.strip, self.config.get('artistTagFields').lower().split(',')))
         trackTagFields = set(map(str.strip, self.config.get('trackTagFields').lower().split(',')))
         touchedFields = artistTagFields.union(trackTagFields)
@@ -353,13 +343,13 @@ class MediaLibrary:
         writeUntaggedTrack = (self.config.get('writeUntaggedTag').lower() == 'track' or self.config.get('writeUntaggedTag').lower() == 'both')
 
         if (touchedFields is None or len(touchedFields) == 0):
-            self.outputWrapper.logError('Perhaps you should configure a destination field...')
+            logging.info('Perhaps you should configure a destination field...')
             return
 
         self.loadSynonyms()
         self.generateLocalTags()
 
-        self.outputWrapper.logNormal('Updating tags in [' + mediadir + ']')
+        logging.info('Updating tags in [' + mediadir + ']')
         numfiles = 0
         for root, dirs, files in os.walk(mediadir):
             for filename in files:
@@ -382,7 +372,7 @@ class MediaLibrary:
                         if (artist not in self.mediaLibrary or
                             album not in self.mediaLibrary[artist]['albums'] or
                             track not in self.mediaLibrary[artist]['albums'][album]['tracks']):
-                            self.outputWrapper.logError('Entry not found in library: [' + artist + '][' + album + '][' + track + ']')
+                            logging.info('Entry not found in library: [' + artist + '][' + album + '][' + track + ']')
                             continue
                         artistTags.extend(self.mediaLibrary[artist]['tags'] or [])
                         trackTags.extend(self.mediaLibrary[artist]['albums'][album]['tracks'][track]['tags'] or [])
@@ -425,20 +415,18 @@ class MediaLibrary:
 
                         common.sortWeightedTagTuples(tagWeightsList)
 
-                        tagPayload[touchedField] = self.formattedTagList(tagWeightsList, startDelim, endDelim)
+                        tagPayload[touchedField] = self.formattedTagList(tagWeightsList)
 
                     if (self.mediaHelper.updateTags(os.path.join(root, filename), tagPayload)):
                         numfiles += 1
-                        if (verbose):
-                            self.outputWrapper.logNormal('\tUpdated: ' + os.path.join(root, filename))
-                    elif (verbose):
-                        self.outputWrapper.logNormal('\tSkipped: ' + os.path.join(root, filename) + ' (nothing to update)')
+                        logging.info('\tUpdated: ' + os.path.join(root, filename))
+                    else:
+                        logging.info('\tSkipped: ' + os.path.join(root, filename) + ' (nothing to update)')
                 except Exception as err:
-                    self.outputWrapper.logError('\tFailed to update: ' + os.path.join(root, filename) + ' (' + str(err) + ')')
+                    logging.info('\tFailed to update: ' + os.path.join(root, filename) + ' (' + str(err) + ')')
                     pass
-        self.outputWrapper.logNormal('Updated [' + str(numfiles) + '] media files')
-        #if (verbose):
-        #    self.printDistinctLocalTags()
+        logging.info('Updated [' + str(numfiles) + '] media files')
+        self.printDistinctLocalTags()
 
 
     def loadSynonyms(self):
@@ -446,7 +434,7 @@ class MediaLibrary:
         if (common.isempty(synfile)):
             return
         if (not os.path.exists(synfile) or not os.access(synfile, os.R_OK)):
-            self.outputWrapper.logError('Synonyms file either does not exist or cannot be accessed [' + synfile + ']')
+            logging.info('Synonyms file either does not exist or cannot be accessed [' + synfile + ']')
 
         # Read the synonmyms file. The expected format is:
         # original token(tab)replacement token[,replacement token]...
@@ -465,7 +453,7 @@ class MediaLibrary:
                 pass#line = str(line, 'latin1')
             synline = line.split('\t')
             if (len(synline) < 2):
-                self.outputWrapper.logError('Invalid synonym file line: ' + line)
+                logging.info('Invalid synonym file line: ' + line)
                 continue
             original = synline[0].lower()
             replacements = list(map(str.strip, synline[1].split(',')))
@@ -475,17 +463,18 @@ class MediaLibrary:
                 self.synonyms[original] = common.distinctSeq(self.synonyms[original] + replacements)
             else:
                 self.synonyms[original] = common.distinctSeq(replacements)
-        #for syn in sorted(self.synonyms):
-        #    self.outputWrapper.logNormal(u'Synonyms: '+ syn + ' :: '+ ', '.join(sorted(self.synonyms[syn])))
+                
         if (self.config.getboolean('verbose')):
-            self.outputWrapper.logNormal('Loaded [' + str(len(list(self.synonyms.keys()))) + '] tag synonyms')
+            for syn in sorted(self.synonyms):
+                logging.info(u'Synonyms: '+ syn + ' :: '+ ', '.join(sorted(self.synonyms[syn])))
+        logging.info('Loaded [' + str(len(list(self.synonyms.keys()))) + '] tag synonyms')
 
 
     def loadSkipList(self, strInFile):
         if (common.isempty(strInFile)):
             return set()
         if (not os.path.exists(strInFile) or not os.access(strInFile, os.R_OK)):
-            self.outputWrapper.logError('SkipList file either does not exist or cannot be accessed [' + strInFile + ']')
+            logging.info('SkipList file either does not exist or cannot be accessed [' + strInFile + ']')
 
         ignoreCase = self.config.getboolean('ignoreCase')
         tmpSet = set()
@@ -501,8 +490,8 @@ class MediaLibrary:
             if (ignoreCase):
                 line = line.lower()
             tmpSet.add(line)
-        if (self.config.getboolean('verbose')):
-            self.outputWrapper.logNormal('Loaded [' + str(len(tmpSet)) + '] skip list entries from [' + strInFile + ']')
+        # if (self.config.getboolean('verbose')):
+        logging.info('Loaded [' + str(len(tmpSet)) + '] skip list entries from [' + strInFile + ']')
         return tmpSet
 
 
@@ -615,7 +604,7 @@ class MediaLibrary:
         disptags = []
         for localtag in self.localTagLibrary:
             disptags.append((self.localTagLibrary[localtag]['disp'], self.localTagLibrary[localtag]['localhits']))
-        self.outputWrapper.logNormal('\nDistinct Update-stream Tags (most to least frequent, in your library): \n\t' + '\n\t'.join([pair[0] + ' (' + str(pair[1]) + ')' for pair in common.sortWeightedTagTuples(disptags)]))
+        logging.debug('\nDistinct Update-stream Tags (most to least frequent, in your library): \n\t' + '\n\t'.join([pair[0] + ' (' + str(pair[1]) + ')' for pair in common.sortWeightedTagTuples(disptags)]))
 
 
     def printDistinctLastTags(self):
@@ -624,15 +613,15 @@ class MediaLibrary:
         disptags = []
         for lasttag in self.lastTagLibrary:
             disptags.append((lasttag, self.lastTagLibrary[lasttag]))
-        self.outputWrapper.logNormal('\nDistinct In-library LastFM Tags (most to least popular, on LastFM): \n\t' + '\n\t'.join([pair[0] + ' (' + str(pair[1]) + ')' for pair in common.sortWeightedTagTuples(disptags)]))
+        logging.debug('\nDistinct In-library LastFM Tags (most to least popular, on LastFM): \n\t' + '\n\t'.join([pair[0] + ' (' + str(pair[1]) + ')' for pair in common.sortWeightedTagTuples(disptags)]))
 
 
-    def formattedTagList(self, tagpairs, startDelim, endDelim):
+    def formattedTagList(self, tagpairs):
         '''
         This method breaks apart the tag pairs, returning just a list of the canonical-form
-        tags (optionally formatted with starting/ending delimiters)
+        tags
         '''
-        return common.distinctSeq([startDelim + self.localTagLibrary[pair[0]]['disp'] + endDelim for pair in tagpairs])
+        return common.distinctSeq([self.localTagLibrary[pair[0]]['disp'] for pair in tagpairs])
 
 
     def getLibraryWeight(self, tag):

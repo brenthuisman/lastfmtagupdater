@@ -28,7 +28,7 @@ Usage:
         skipfetch='false',
         skipupdate='false',
         cacheFile='librarycache.xml',
-        logFile='lastfmtagupdater.log',
+        logFile='None',
         mediadir='.',
         niceness='50',
         ignoreCase='true',
@@ -60,11 +60,7 @@ Usage:
         genreSort='record',
         groupingSort='record',
         commentSort='record',
-        id3v1Handling='0',
-        id3v2DupeHeaderFix='false',
-        tagStartDelim='',
-        tagEndDelim='',
-        tagSep=';')
+        id3v2DupeHeaderFix='false')
 
     allowedMediaWriteFields = set(['genre', 'grouping', 'comment', ''])
     allowedSortOptions = set(['record', 'popularity', 'library'])
@@ -118,11 +114,6 @@ Usage:
                 raise IOError('Could not open config file for reading: ' + os.path.abspath(configfile))
             config = configparser.SafeConfigParser(self.defaults)
             config.read(configfile)
-
-            # Decode the various delim/sep fields, if the user had to enter a keyword for a char
-            config.set(self.config_section, 'tagSep', self.decode_string(config.get(self.config_section, 'tagSep')))
-            config.set(self.config_section, 'tagStartDelim', self.decode_string(config.get(self.config_section, 'tagStartDelim')))
-            config.set(self.config_section, 'tagEndDelim', self.decode_string(config.get(self.config_section, 'tagEndDelim')))
 
             # Sanity check various settings
             mediadir = config.get(self.config_section, 'mediaDir')

@@ -1,26 +1,23 @@
-import os,time,mutagen
+import os,time,logging
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TIT1, COMM, TCON, TPE1, TPE2, TIT2, TALB
 from mutagen.mp4 import MP4
 from mutagen.oggvorbis import OggVorbis
 from mutagen.oggopus import OggOpus
+from mutagen import File
 from . import common
 
 class MediaHelper:
     config = None
-    # tagSep = None
     maxTags = None
     tagSkipCounts = None
     overwriteFields = None
     forceOverwriteFields = None
-    id3v1Handling = None
     id3v2DupeHeaderFix = False
     useBothArtistFields = False
     artistFieldPref = []
-    outputWrapper = None
 
     formatFieldMap = dict(
-          # id3=dict(genre='TCON', grouping='TIT1', comment="COMM::'eng'", artist='TPE1', albumartist='TPE2', album='TALB', track='TIT2'),
           id3=dict(genre='TCON', grouping='TIT1', comment="COMM::eng", artist='TPE1', albumartist='TPE2', album='TALB', track='TIT2'),
           mp4=dict(genre='\xa9gen', grouping='\xa9grp', comment='\xa9cmt', artist='\xa9ART', albumartist='aART', album='\xa9alb', track='\xa9nam'),
           oggvorbis=dict(genre='genre', grouping='grouping', comment='comment', artist='artist', albumartist='album artist', album='album', track='title'),
@@ -41,12 +38,8 @@ class MediaHelper:
     meaninglessArtists = frozenset(['various artists', 'soundtrack', 'soundtracks', 'original soundtrack', 'ost', 'compilation'])
 
 
-    def __init__(self, config, outputWrapper):
+    def __init__(self, config):
         self.config = config
-        self.outputWrapper = outputWrapper
-        # self.tagSep = self.config.get('tagSep')
-        # if (len(self.tagSep.strip()) > 0):
-        #     self.tagSep += ' '
         self.maxTags = dict(genre=self.config.getint('genreMaxTags'),
                             grouping=self.config.getint('groupingMaxTags'),
                             comment=self.config.getint('commentMaxTags'))
@@ -55,13 +48,14 @@ class MediaHelper:
                                   comment=self.config.getint('commentTagSkipCount'))
         self.overwriteFields = set(map(str.strip, self.config.get('overwriteFields').lower().split(',')))
         self.forceOverwriteFields = set(map(str.strip, self.config.get('forceOverwriteFields').lower().split(',')))
-        self.id3v1Handling = self.config.getint('id3v1Handling')
         self.ignoreCase = self.config.getboolean('ignoreCase')
         self.id3v2DupeHeaderFix = self.config.getboolean('id3v2DupeHeaderFix')
 
         self.artistFieldPref = ['albumartist', 'artist']
-        if (self.config.get('artistField').lower() == 'both'):      self.useBothArtistFields = True
-        elif (self.config.get('artistField').lower() == 'artist'):  self.artistFieldPref.reverse()
+        if (self.config.get('artistField').lower() == 'both'):
+            self.useBothArtistFields = True
+        elif (self.config.get('artistField').lower() == 'artist'):
+            self.artistFieldPref.reverse()
 
 
     def getMediawrapper(self, filename):
@@ -71,7 +65,7 @@ class MediaHelper:
         elif (ext == '.ogg'):   mediawrapper = OggVorbis(filename)
         elif (ext == '.opus'):  mediawrapper = OggOpus(filename)
         elif (ext == '.flac'):  mediawrapper = FLAC(filename)
-        else:                   mediawrapper = mutagen.File(filename)
+        else:                   mediawrapper = File(filename)
         return mediawrapper
 
 
@@ -85,10 +79,9 @@ class MediaHelper:
             elif (isinstance(mediawrapper, OggOpus)): return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['oggopus'], filename)
             elif (isinstance(mediawrapper, FLAC)):      return self.extractMetadataHelper(mediawrapper, self.formatFieldMap['flac'], filename)
             else:
-                if (self.config.getboolean('verbose')):
-                    self.outputWrapper.logNormal('\tSkipping unknown/incompatible media file type [' + filename + ']')
+                logging.warning('\tSkipping unknown/incompatible media file type [' + filename + ']')
         except Exception as err:
-            self.outputWrapper.logError('Error seen during media reading: ' + str(err))
+            logging.error('Error seen during media reading: ' + str(err))
         return None
 
 
@@ -107,7 +100,7 @@ class MediaHelper:
                 break
         artists = set(artists).difference(self.meaninglessArtists)
         if (len(artists) == 0):
-            self.outputWrapper.logError('No artist info found for [' + filename + ']')
+            logging.error('No artist info found for [' + filename + ']')
             return None
 
         # album
@@ -128,7 +121,7 @@ class MediaHelper:
                     tmptrack = tmptrack.lower()
                 track = str(tmptrack)
         if (track is None):
-            self.outputWrapper.logError('No track title found for [' + filename + ']')
+            logging.warning('No track title found for [' + filename + ']')
             return None
         return {'artists':artists, 'album':album, 'track':track}
 
@@ -138,7 +131,6 @@ class MediaHelper:
             mediawrapper = self.getMediawrapper(filename)
 
             for bucket in tagPayload:
-                # tagPayload[bucket] = self.tagSep.join(tagPayload[bucket][self.tagSkipCounts[bucket]:self.tagSkipCounts[bucket] + self.maxTags[bucket]])
                 tagPayload[bucket] = tagPayload[bucket][self.tagSkipCounts[bucket]:self.tagSkipCounts[bucket] + self.maxTags[bucket]]
 
             if (isinstance(mediawrapper, ID3)):         return self.updateTagsHelperID3(mediawrapper, tagPayload, self.formatFieldMap['id3'])
@@ -146,9 +138,9 @@ class MediaHelper:
             elif (isinstance(mediawrapper, OggVorbis)): return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['oggvorbis'])
             elif (isinstance(mediawrapper, OggOpus)): return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['oggopus'])
             elif (isinstance(mediawrapper, FLAC)):      return self.updateTagsHelper(mediawrapper, tagPayload, self.formatFieldMap['flac'])
-            else:                                       self.outputWrapper.logNormal('Skipping unknown/incompatible media file type [' + filename + ']')
+            else:                                       logging.warning('Skipping unknown/incompatible media file type [' + filename + ']')
         except Exception as err:
-            self.outputWrapper.logError('Error seen during update processing: ' + str(err))
+            logging.error('Error seen during update processing: ' + str(err))
         return False
 
 
@@ -180,8 +172,7 @@ class MediaHelper:
             while True:
                 try:
                     if (isinstance(mediawrapper, ID3)):
-                        mediawrapper.update_to_v24()
-                        mediawrapper.save(v2_version=4)
+                        logging.error("This is not an MP3 file, yet an ID3 tag was found.")
                     else:
                         mediawrapper.save()
                     break
@@ -189,7 +180,7 @@ class MediaHelper:
                     retryCount += 1
                     if (retryCount > 2):
                         raise
-                    self.outputWrapper.logError('Problem updating media file - retrying (' + str(err) + ')')
+                    logging.error('Problem updating media file - retrying (' + str(err) + ')')
                     time.sleep(1)
         return retVal
 
@@ -204,17 +195,6 @@ class MediaHelper:
             if (bucket not in fieldMap): raise Exception('Unknown field type requested [' + bucket + ']')
             curField = fieldMap[bucket]
 
-            # debug: multiple values in one tag is not a solved problem in ID3...
-            # print(curField)
-            # for key, value in mediawrapper.items():
-            #     print(key,value)
-            # try:
-            #     print(mediawrapper[curField])
-            # except Exception as e:
-            #     print("Error gevangen:",e)
-            # input("verder?")
-
-            # self.outputWrapper.logNormal(u'\t\t'+unicode(curField)+'\t'+unicode(tagPayload[bucket]))
             # If we're not required to overwrite, check if we actually need to and should
             if (bucket not in self.forceOverwriteFields):
                 # Is the payload empty? Don't update.
@@ -244,20 +224,19 @@ class MediaHelper:
                         retryCount += 1
                         if (retryCount > 2):
                             raise
-                        self.outputWrapper.logError('Problem updating media file - retrying (' + str(err) + ')')
+                        logging.error('Problem updating media file - retrying (' + str(err) + ')')
                         time.sleep(1)
                 for key in curFrames:
                     mediawrapper[key] = curFrames[key]
             retryCount = 0
             while True:
                 try:
-                    mediawrapper.update_to_v24()
-                    mediawrapper.save(v2_version=4,v1=self.id3v1Handling)
+                    mediawrapper.save(v1=0)
                     break
                 except Exception as err:
                     retryCount += 1
                     if (retryCount > 2):
                         raise
-                    self.outputWrapper.logError('Problem updating media file - retrying (' + str(err) + ')')
+                    logging.error('Problem updating media file - retrying (' + str(err) + ')')
                     time.sleep(1)
         return retVal

@@ -1,20 +1,14 @@
-import sys,pylast,time
+import sys,pylast,time,logging
 
 # Fetch tags from LastFM and convert them into a list of (tag, weight) pairs
 class LastFM_Wrapper:
-    # PyLast has different return types, depending on whether the ver is 2.6 or less. Bugger all. So now we need
-    # to have conditional logic, based on that. Weakly typed languages FTMFL.
-    useNamedTuple = False;
-    outputWrapper = None
 
-    def __init__(self, config, outputWrapper):
+    def __init__(self, config):
         self.config = config
-        self.outputWrapper = outputWrapper
         self.api_key = config.get('lastFMAPI_key')
         self.api_secret = config.get('lastFMAPI_secret')
         pyver = sys.version_info
-        if pyver[1] >= 6 and pyver[0] < 3:
-            self.useNamedTuple = True
+        logging.getLogger(pylast.__name__).setLevel(logging.ERROR)
 
 
     def fetchArtistTags(self, artist, maxTagsToFetch, minWeight, retries=2):
@@ -23,17 +17,17 @@ class LastFM_Wrapper:
         weight, longer than the maximum allowable distance, self-referential, etc.
         '''
         try:
-            lastfm = pylast.get_lastfm_network(api_key=self.api_key, api_secret=self.api_secret)
+            lastfm = pylast.LastFMNetwork(api_key=self.api_key, api_secret=self.api_secret)
             tags = self.processSeenTags(lastfm.get_artist(artist).get_top_tags(limit=maxTagsToFetch), minWeight)
             return [pair for pair in tags if pair[0].lower().replace('the', '').strip() != artist.lower().replace('the', '').strip()]
         except Exception as err:
             if ('not found' in str(err).lower() or 'not be found' in str(err).lower()): return []
             if (retries > 0):
-                self.outputWrapper.logError('Problem retrieving artist tag information for [' + str(artist) + '], ' + str(retries) + ' retries left: ' + str(err))
+                logging.error('Problem retrieving artist tag information for [' + str(artist) + '], ' + str(retries) + ' retries left: ' + str(err))
                 time.sleep(5)
                 return self.fetchArtistTags(artist, maxTagsToFetch, minWeight, retries - 1)
             else:
-                self.outputWrapper.logError('Problem retrieving artist tag information for [' + str(artist) + '], skipping: ' + str(err))
+                logging.error('Problem retrieving artist tag information for [' + str(artist) + '], skipping: ' + str(err))
         return None
 
 
@@ -43,17 +37,17 @@ class LastFM_Wrapper:
         weight, longer than the maximum allowable distance, self-referential, etc.
         '''
         try:
-            lastfm = pylast.get_lastfm_network(api_key=self.api_key, api_secret=self.api_secret)
+            lastfm = pylast.LastFMNetwork(api_key=self.api_key, api_secret=self.api_secret)
             tags = self.processSeenTags(lastfm.get_track(artist, track).get_top_tags(limit=maxTagsToFetch), minWeight)
             return [pair for pair in tags if pair[0].lower().replace('the', '').strip() != artist.lower().replace('the', '').strip() and pair[0].lower() != track]
         except Exception as err:
             if ('not found' in str(err).lower() or 'not be found' in str(err).lower()): return []
             if (retries > 0):
-                self.outputWrapper.logError('Problem retrieving track tag information for [' + str(artist) + ':' + str(track) + '], ' + str(retries) + ' retries left: ' + str(err))
+                logging.error('Problem retrieving track tag information for [' + str(artist) + ':' + str(track) + '], ' + str(retries) + ' retries left: ' + str(err))
                 time.sleep(5)
                 return self.fetchTrackTags(artist, track, maxTagsToFetch, minWeight, retries - 1)
             else:
-                self.outputWrapper.logError('Problem retrieving track tag information for [' + str(artist) + ':' + str(track) + '], skipping: ' + str(err))
+                logging.error('Problem retrieving track tag information for [' + str(artist) + ':' + str(track) + '], skipping: ' + str(err))
         return None
 
 
@@ -67,10 +61,7 @@ class LastFM_Wrapper:
 
         newtags = []
         for rawtag in tags:
-            if (self.useNamedTuple):
-                tag = str(rawtag.item.name)
-                weight = int(rawtag.weight)
-            elif type(rawtag) == pylast.TopItem:
+            if type(rawtag) == pylast.TopItem:
                 tag = str(rawtag.item.get_name())
                 weight = int(rawtag.weight)
             else:
@@ -90,52 +81,26 @@ class LastFM_Wrapper:
         '''
         tags = {}
         try:
-            lastfm = pylast.get_lastfm_network(api_key=self.api_key, api_secret=self.api_secret)
+            lastfm = pylast.LastFMNetwork(api_key=self.api_key, api_secret=self.api_secret)
             lastTopTags = lastfm.get_top_tags(10000)
             for lastTopTag in lastTopTags:
-                if (self.useNamedTuple):
-                    key = str(lastTopTag.item.name).lower()
-                    count = int(lastTopTag.weight)
-                elif type(lastTopTag) == pylast.TopItem:
+                if type(lastTopTag) == pylast.TopItem:
                     key = str(lastTopTag.item.get_name()).lower()
                     count = int(lastTopTag.weight)
                 else:
                     key = str(lastTopTag['item'].name).lower()
                     count = int(lastTopTag['weight'])
                 if (key in tags):
-                    self.outputWrapper.logError('Duplicate tag retrieved from lastFM, merging counts: ' + lastTopTag)
+                    logging.error('Duplicate tag retrieved from lastFM, merging counts: ' + lastTopTag)
                     tags[key] += count
                 else:
                     tags[key] = count
             return tags
         except Exception as err:
             if (retries > 0):
-                self.outputWrapper.logError('Problem retrieving top tag information, ' + str(retries) + ' retries left: ' + str(err))
+                logging.error('Problem retrieving top tag information, ' + str(retries) + ' retries left: ' + str(err))
                 time.sleep(5)
                 return self.fetchTopTagStats(retries - 1)
             else:
-                self.outputWrapper.logError('Problem retrieving top tag information, ' + str(retries) + ' skipping: ' + str(err))
+                logging.error('Problem retrieving top tag information, ' + str(retries) + ' skipping: ' + str(err))
         return None
-
-
-    def fetchTagCount(self, tag, retries=2):
-        ''' Return a count/weight, for the specified tag. The API no longer seems to return counts, though, so this is currently deprecated. '''
-        try:
-            lastfm = pylast.get_lastfm_network(api_key=self.api_key, api_secret=self.api_secret)
-            results = lastfm.search_for_tag(tag)
-            if (results.get_total_result_count() > 0):
-                topmatch = results.get_next_page()[0]
-                if (topmatch is not None):
-                    if (self.useNamedTuple):
-                        return int(topmatch.weight)
-                    return int(topmatch['weight'])
-        except Exception as err:
-            if (retries > 0):
-                self.outputWrapper.logError('Problem retrieving tag information, ' + str(retries) + ' retries left: ' + str(err))
-                time.sleep(5)
-                return self.fetchTopTagStats(retries - 1)
-            else:
-                self.outputWrapper.logError('Problem retrieving tag information, ' + str(retries) + ' skipping: ' + str(err))
-        return None
-
-

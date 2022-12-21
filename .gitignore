@@ -1,13 +1,4 @@
-*
-!.gitignore
-!README.md
-!*.py
-!LICENSE
-!tagsyn.txt
-!artistskiplist.txt
-!lastfm_tagger.conf
-!*/
 build/*
 dist/*
-flickrsimplesync.egg-info/*
+*.egg-info/*
 __pycache__/*

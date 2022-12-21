@@ -1,0 +1,37 @@
+[project]
+name = "lastfmtagupdater"
+version = "3.1.0"
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+description = "Update your music files with tags from Last.FM"
+requires-python = ">=3.6"
+keywords = ["lastfm","music","tag","update"]
+authors = [
+    {name = "Brent Huisman"},
+    {email = "brent@huisman.pl"}
+]
+maintainers = [
+    {name = "Brent Huisman", email = "brent@huisman.pl"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Topic :: Utilities",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "pylast",
+    "mutagen"
+]
+
+[project.urls]
+homepage = "https://github.com/brenthuisman/lastfmtagupdater"
+documentation = "https://github.com/brenthuisman/lastfmtagupdater"
+repository = "https://github.com/brenthuisman/lastfmtagupdater"
+changelog = "https://github.com/brenthuisman/lastfmtagupdater/blob/master/README.md"
+
+[project.scripts]
+lastfmtagupdater = "lastfmtagupdater:main"
